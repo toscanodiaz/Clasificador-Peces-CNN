@@ -85,6 +85,12 @@ python plot_fish.py --log "./outputs/output_20251108_145328_log.json" \
                     --metrics "./outputs/output_20251108_145328_metrics.json"
 ```
 
+Correr la interfaz gráfica:
+
+```bash
+python UI_fish.py --ckpt "./outputs/output_20251108_145328_best.pt"
+```
+
 ## Archivos generados
 
 - *_best.pt	--> pesos del mejor modelo (checkpoint)
