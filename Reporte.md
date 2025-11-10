@@ -1,4 +1,5 @@
----------------------------------------------------------- **EN PROGRESO** ----------------------------------------------------------
+# ------- **EN PROGRESO** -------
+
 
 Se entrenó un clasificador CNN para reconocer 31 especies de peces del Fish Dataset (Kaggle). Tras tres iteraciones de entrenamiento, la métrica de validación pasó de 52% a 89% y finalmente a 94.7% de exactitud, con macro-F1 0.937 en la corrida final (50 épocas). En esa última corrida, el mejor punto se alcanzó en la época 49 con val loss 0.2391 y val acc 0.9469.
 
@@ -35,11 +36,11 @@ El modelo aprende rasgos básicos pero está subentrenado con solo 5 épocas y n
 
 Resultados (val): loss 0.4195, acc 0.8902, macro-F1 0.8750.
 
-Más épocas: el modelo tuvo tiempo de aprender features de mayor nivel como bordes, texturas, patrones etc.
+Al haber subido las épocas el modelo tuvo tiempo de aprender features de mayor nivel como bordes, texturas, patrones etc.
 
-DataLoader más rápido (num_workers=4): batches más constantes y entrenamiento más estable.
+DataLoader más rápido (num_workers=4) permite batches más constantes y entrenamiento más estable.
 
-StepLR: con 25 épocas ya hubo tres decaimientos del LR (en 8, 16, 24) lo que suele mejorar la convergencia.
+StepLR con 25 épocas ya hubo tres decaimientos del LR (8, 16, 24) lo que tiende a mejorar la convergencia.
 
 # Iteración 3 
 
