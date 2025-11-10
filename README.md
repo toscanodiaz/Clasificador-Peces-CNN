@@ -10,6 +10,26 @@ Este proyecto implementa una red neuronal convolucional para clasificar imágene
 
 Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.com/file/d/1iD0jYUkxk3ZaiCycANYzXOzhqoa_52F3/view?usp=sharing)
 
+
+## Estructura del proyecto
+
+**evidenciaDL**/
+- run_fish.py --> script de entrenamiento
+- model_fish.py --> creación, entrenamiento y evaluación del modelo
+- plot_fish.py --> graficar accuracy/loss y métricas finales
+
+   **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
+   - output_0251108_145328_best.pt
+   - output_0251108_145328_log.json
+   - output_0251108_145328_metrics.json
+   
+   **fish_dataset**/
+   - FishImgDataset/
+      - train/
+      - val/
+      - test/
+
+
 ## Descripción general
 
 Se utilizó el dataset de Kaggle [Fish Dataset](https://www.kaggle.com/datasets/markdaniellampa/fish-dataset). 
@@ -42,25 +62,6 @@ Instalar dependencias:
 ```bash
 pip install torch torchvision torchaudio scikit-learn tqdm matplotlib
 ```
-
-
-## Estructura del proyecto
-
-**evidenciaDL**/
-- run_fish.py --> script de entrenamiento
-- model_fish.py --> creación, entrenamiento y evaluación del modelo
-- plot_fish.py --> graficar accuracy/loss y métricas finales
-
-   **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
-   - output_0251108_145328_best.pt
-   - output_0251108_145328_log.json
-   - output_0251108_145328_metrics.json
-   
-   **fish_dataset**/
-   - FishImgDataset/
-      - train/
-      - val/
-      - test/
 
 
 ## Entrenamiento
