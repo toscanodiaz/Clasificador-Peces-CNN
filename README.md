@@ -2,6 +2,8 @@ Momento de Retroalimentación: Módulo 2 Implementación de un modelo de deep le
 
 Ana Karen Toscano Díaz A01369687
 
+<img width="567" height="193" alt="image" src="https://github.com/user-attachments/assets/a522414a-cd13-4386-89ad-aebdb66b56f8" />
+
 # Clasificador Peces CNN
 
 Este proyecto implementa una red neuronal convolucional para clasificar imágenes de diferentes especies de peces. Se utiliza PyTorch y Torchvision para el procesamiento, entrenamiento y evaluación e implementa la visualización de métricas de aprendizaje en tiempo real.
