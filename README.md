@@ -8,6 +8,8 @@ Ana Karen Toscano Díaz A01369687
 
 Este proyecto implementa una red neuronal convolucional para clasificar imágenes de diferentes especies de peces. Se utiliza PyTorch y Torchvision para el procesamiento, entrenamiento y evaluación e implementa la visualización de métricas de aprendizaje en tiempo real.
 
+Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.com/file/d/1iD0jYUkxk3ZaiCycANYzXOzhqoa_52F3/view?usp=sharing)
+
 ## Descripción general
 
 Se utilizó el dataset de Kaggle [Fish Dataset](https://www.kaggle.com/datasets/markdaniellampa/fish-dataset). 
