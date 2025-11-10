@@ -29,6 +29,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
       - val/
       - test/
 
+**Reporte.md** --> documentación del proyecto
 
 ## Descripción general
 
