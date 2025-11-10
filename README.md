@@ -49,16 +49,16 @@ pip install torch torchvision torchaudio scikit-learn tqdm matplotlib
 - model_fish.py --> creación, entrenamiento y evaluación del modelo
 - plot_fish.py --> graficar accuracy/loss y métricas finales
 
-**outputs**/ --> carpeta donde se guardan resultados de mejor modelo
-- output_0251108_145328_best.pt
-- output_0251108_145328_log.json
-- output_0251108_145328_metrics.json
-
-**fish_dataset**/
-- FishImgDataset/
-   - train/
-   - val/
-   - test/
+   **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
+   - output_0251108_145328_best.pt
+   - output_0251108_145328_log.json
+   - output_0251108_145328_metrics.json
+   
+   **fish_dataset**/
+   - FishImgDataset/
+      - train/
+      - val/
+      - test/
 
 
 ## Entrenamiento
