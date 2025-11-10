@@ -1,3 +1,5 @@
+---------------------------------------------------------- **EN PROGRESO** ----------------------------------------------------------
+
 Se entrenó un clasificador CNN para reconocer 31 especies de peces del Fish Dataset (Kaggle). Tras tres iteraciones de entrenamiento, la métrica de validación pasó de 52% a 89% y finalmente a 94.7% de exactitud, con macro-F1 0.937 en la corrida final (50 épocas). En esa última corrida, el mejor punto se alcanzó en la época 49 con val loss 0.2391 y val acc 0.9469.
 
 # Problema y datos
