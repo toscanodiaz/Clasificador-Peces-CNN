@@ -17,6 +17,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
 - run_fish.py --> script de entrenamiento
 - model_fish.py --> creación, entrenamiento y evaluación del modelo
 - plot_fish.py --> graficar accuracy/loss y métricas finales
+- UI_fish.py --> correr interfaz gráfica del modelo
 
    **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
    - output_0251108_145328_best.pt
