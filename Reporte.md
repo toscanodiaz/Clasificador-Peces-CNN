@@ -1,4 +1,8 @@
-<img src="https://github.com/user-attachments/assets/3eb912a3-de97-4ac4-bf66-063ebf5aa020" alt="imagen" width="452" />
+# FISH CLASSIFIER 
+
+<img src="https://github.com/user-attachments/assets/8451c155-1ba3-4cf3-ba50-0fc3c4ddc82a" alt="imagen" width="552" />
+
+
 
 ---
 
