@@ -206,7 +206,7 @@ Desde la parte de implementación, esta iteración además de ser la mejor fue t
 - **batch_size** = 32
 - **num_workers** = 0 **(evitar errores en Windows)** 
 - **Optimizador**: AdamW con lr = 3e-4 y weight_decay = 1e-4 
-- **Scheduler StepLR**: step_size = 8, gamma = 0.5 (en esta iteración no llega a activarse porque solo hay 5 épocas)
+- **Scheduler StepLR**: step_size = 8, gamma = 0.5 
 - **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0)
 
 ## Resultados
