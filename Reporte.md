@@ -1,6 +1,4 @@
-# ------- **EN PROGRESO** -------
-
-<img width="483" height="237" alt="image" src="https://github.com/user-attachments/assets/3a4e6f15-8838-408b-bf5d-6378a23be749" />
+<img src="https://github.com/user-attachments/assets/3eb912a3-de97-4ac4-bf66-063ebf5aa020" alt="imagen" width="452" />
 
 ---
 
@@ -78,10 +76,23 @@ Las augmentaciones ampliaron artificialmente el dataset, el cual contiene fotos 
 - **num_workers** = 0 (carga de datos secuencial) 
 - **Optimizador**: AdamW con lr = 3e-4 y weight_decay = 1e-4 
 - **Scheduler StepLR**: step_size = 8, gamma = 0.5 (en esta iteración no llega a activarse porque solo hay 5 épocas)
-- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0).
+- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0)
+
+Se definieron esos parámetros como baseline para tener una configuración relativamente segura y estándar para un primer experimento. 
+
+- Pocas ápocas para un chequeo rápido del pipeline de (modelo, dataloaders, transformaciones, optimizador) sin invertir demasiado tiempo de ejecución; el objetivo no era maximizar el rendimiento sino verificar que todo funcionara correctamente y que el modelo empezara a aprender algo útil. 
+- batch_size = 32 es un valor típico para equilibrar estabilidad del gradiente y uso de memoria --> suficientemente grande para estimar bien el gradiente pero no tanto como para romper la RAM. 
+- num_workers = 0 en Windows es lo más estable para una primera iteración porque evita problemas de multiproceso al cargar imágenes. 
+- AdamW es bueno para clasificadores de imágenes porque combina la adaptatividad de Adam con regularización por weight decay desacoplada; el learning rate 3e-4 es conservador (no muy grande ni muy pequeño) y el weight decay ayuda a evitar que los pesos crezcan demasiado y se sobreajuste desde la primera iteración.
+- Scheduler StepLR (step_size = 8, gamma = 0.5) en esta iteración no se activa pero se deja configurado desde el inicio para mantener la misma receta de entrenamiento en todas las iteraciones y aumentar las épocas sin cambiar la lógica del código.
+- CrossEntropyLoss (label_smoothing = 0.0) es la función de pérdida estándar para clasificación multiclase, en el baseline se usa sin label smoothing para tener una referencia limpia del desempeño de la arquitectura sin transformaciones extra.
 
 ## Resultados en val
 **loss**: 1.6844, **acc**: 0.5162, **F1**: 0.4318
+
+El modelo sí está aprendiendo algo, no está al nivel de azar pero todavía está underfitted pues 5 épocas no son suficientes para que la red aproveche bien todo el dataset; el acc: 0.5162 y F1: 0.4318 indican que hay clases que ya se reconocen decentemente pero el rendimiento promedio por clase sigue siendo limitado (algunas clases tienen peor desempeño que otras).
+
+Estos resultados sirven como baseline y en las siguientes iteraciones se aumentarán épocas, workers, early stopping etc, y se van a comparar contra este punto para justificar las mejoras en rendimiento.
 
 ## Gráficas
 
@@ -127,7 +138,7 @@ La estructura de esta matriz es muy parecida a la de validación con la diagonal
 - **num_workers** = 4 **(data loader más rápido)** 
 - **Optimizador**: AdamW con lr = 3e-4 y weight_decay = 1e-4 
 - **Scheduler StepLR**: step_size = 8, gamma = 0.5
-- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0).
+- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0)
 
 ## Resultados en val
 **loss**: 0.4195, **acc**: 0.8902, **F1**: 0.8750
@@ -166,7 +177,7 @@ A partir de la época 17 aprox, el loss se mantiene en 0.5 - 0.6 y termina en 0.
 
 La diagonal de la matriz tiene muchos valores altos, o sea que el modelo acierta la clase correcta en la mayoría de los casos. Varias clases muestran un comportamiento casi perfecto (Grass Carp, Glass Perchlet, Gourami, Gold Fish, Silver Carp...) con números altos y pocos errores dispersos, sin embargo las confusiones que aparecen normalmanete se dan en las especies con morfología o colores parecidos, lo cual es esperable por la naturaleza del dataset. 
 
-No hay ninguna clase que esté totalmente sin aciertos, confirmando que el modelo aprende todas las clases aunque algunas sean más difíciles que otras, alineado con el macro-F1 alto (0.875) --> el modelo no solo tiene buena accuracy global, sino que también se comporta bien por clase. 
+No hay ninguna clase que esté totalmente sin aciertos, confirmando que el modelo aprende todas las clases aunque algunas sean más difíciles que otras, alineado con el F1: 0.875 --> el modelo no solo tiene buena accuracy global, sino que también se comporta bien por clase. 
 
 ### Matriz de confusión Test
 
@@ -183,7 +194,7 @@ El comportamiento en test confirma que el modelo de esta segunda iteración ya e
 # Iteración 3 
 
 ## Aspectos de implementación 
-Desde la parte de implementación, esta iteración además de ser la mejor fue también la más costosa al no lograr utilizar la GPU; se intentó CUDA y después DirectML, pero la combinación con AdamW no era estable y aparecieron problemas con algunas operaciones no soportadas y backprop, por lo que el entrenamiento se ejecutó completamente en CPU. En las anteriores iteraciones se usaron 4 con num_workers pero en esta definitiva se optó por usar 0 para evitar problemas en Windows con el dataloader y maximizar la estabilidad. Todo eso implicó que el entrenamiento de las 50 épocas tomara alrededor de 20 horas de ejecución contínua, pero resultó en un modelo mucho más solido y confiable.
+Desde la parte de implementación, esta iteración además de ser la mejor fue también la más costosa al no lograr utilizar la GPU; se intentó CUDA y después DirectML, pero la combinación con AdamW no era estable y aparecieron problemas con algunas operaciones no soportadas y backprop, por lo que el entrenamiento se ejecutó completamente en CPU. En la anterior iteración se usaron 4 num_workers pero en esta definitiva se optó por usar 0 para evitar problemas en Windows con el dataloader y maximizar la estabilidad. Todo eso implicó que el entrenamiento de las 50 épocas tomara alrededor de 20 horas de ejecución contínua, pero resultó en un modelo mucho más solido y confiable.
 
 ## Entrenamiento
 - **epochs**: 50
@@ -192,7 +203,7 @@ Desde la parte de implementación, esta iteración además de ser la mejor fue t
 - **num_workers** = 0 **(evitar errores en Windows)** 
 - **Optimizador**: AdamW con lr = 3e-4 y weight_decay = 1e-4 
 - **Scheduler StepLR**: step_size = 8, gamma = 0.5 (en esta iteración no llega a activarse porque solo hay 5 épocas)
-- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0).
+- **Función de pérdida**: CrossEntropyLoss (label_smoothing = 0.0)
 
 ## Resultados
 **Validation** 
@@ -267,4 +278,18 @@ La regularización fue moderada pero suficiente pues el dropout al final del mod
 
 # Conclusiones
 
+Se logró entrenar un modelo de clasificación de peces basado en una CNN profunda aplicando correctamente las etapas clave del aprendizaje profundo que son preprocesamiento, feature extraction, optimización y evaluación con las métricas reales. Por medio de tres iteraciones se observó que aumentar el número de épocas y mantener un entrenamiento estable con AdamW, StepLR, Dropout, augmentaciones de datos etc mejoró significativamente la capacidad de generalización del modelo hasta alcanzar un 94.69% de accuracy en validación. 
 
+Aunque el entrenamiento se debió realizar en GPU el proceso confirmó el impacto directo de las decisiones tomadas con respecto a mayor profundidad efectiva, regularización adecuada y aprendizaje más prolongado, las cuales resultaron en mejores representaciones internas y clasificación más precisa. 
+
+--- 
+
+# Referencias
+
+- Valdés Aguirre, B. (2025). _Módulo 2: Técnicas y arquitecturas de Deep Learning_. [Manuscrito no publicado]. Google Docs. https://docs.google.com/document/d/10VVnjkQejnhKR2ExMC4IsFVDdEgZ1Q6a/edit
+- Olu-Ipinlaye, O., & Mukherjee, S. (2025, April 29). _A guide to global pooling in neural networks_. DigitalOcean Community Tutorials. https://www.digitalocean.com/community/tutorials/global-pooling-in-convolutional-neural-networks
+- Yassin, A. (2024, November 8). _Adam vs. AdamW: Understanding weight decay and its impact on model performance_. Medium. https://yassin01.medium.com/adam-vs-adamw-understanding-weight-decay-and-its-impact-on-model-performance-b7414f0af8a1
+
+---
+
+<img  src="https://github.com/user-attachments/assets/acbb9132-e825-4a4a-8962-da8e1cede0cb" alt="descarga" width="452" height="361" /> 
