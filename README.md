@@ -20,7 +20,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
 - [UI_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/UI_fish.py) --> cargar un checkpoint entrenado, reconstruir el modelo y correr una interfaz web con Gradio donde se sube una imagen de pez y muestra las top 3 probabilidades por clase. 
 
    **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
-   - [history.csv](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/history.csv) --> tabla con el historial de entrenamiento por época (epoch, loss, acc, o sea cómo aprendió el modelo)
+   - [history.csv](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/history.csv) --> tabla con el historial de entrenamiento por época (epoch, loss, acc) para analizar y graficar cómo aprendió el modelo
    - [output_0251108_145328_best.pt](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/output_20251108_145328_best.pt) --> archivo con los pesos del mejor modelo entrenado
    - [output_0251108_145328_log.json](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/output_20251108_145328_log.json) --> historial de entrenamiento con las curvas de loss y accuracy por época
    - [output_0251108_145328_metrics.json](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/output_20251108_145328_metrics.json) --> métricas finales del modelo en val y test (acc, F1, matriz de confusión, reporte por clase)
