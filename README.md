@@ -14,10 +14,15 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
 ## Estructura del proyecto
 
 **evidenciaDL**/
-- run_fish.py --> script de entrenamiento
-- model_fish.py --> creación, entrenamiento y evaluación del modelo
-- plot_fish.py --> graficar accuracy/loss y métricas finales
-- UI_fish.py --> correr interfaz gráfica del modelo
+- [run_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/run_fish.py) --> script de entrenamiento 
+- [model_fish.py] --> creación, entrenamiento y evaluación del modelo
+- [plot_fish.py]() --> graficar accuracy/loss y métricas finales
+- [UI_fish.py]() --> correr interfaz gráfica del modelo
+
+- [run_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/run_fish.py) --> script para lanzar entrenamiento desde consola; lee argumentos (epochs, batch, patience), llama a train_and_eval, imprime el resumen (mejor acc, checkpoint, métricas).
+- [model_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/model_fish.py) --> define la CNN y toda la lógica de pipeline de entrenamiento (carga del dataset, augmentaciones, entrenar época por época, validación, early stopping, guardar mejor modelo (logs y métricas completas).
+- [plot_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/plot_fish.py) --> lee jsons de log y métricas para generar history.csv y guardar gráficas de accuracy/loss por época y matrices de confusión de val y test. 
+- [UI_fish.py](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/UI_fish.py) --> cargar un checkpoint entrenado, reconstruir el modelo y correr una interfaz web con Gradio donde se sube una imagen de pez y muestra las top 3 probabilidades por clase. 
 
    **outputs**/ --> carpeta donde se guardan resultados de mejor modelo
    - output_0251108_145328_best.pt
@@ -30,7 +35,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
       - val/
       - test/
 
-**Reporte.md** --> [documentación del proyecto](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md)
+- [**Reporte.md**](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md) --> documentación del proyecto. 
 
 ## Descripción general
 
