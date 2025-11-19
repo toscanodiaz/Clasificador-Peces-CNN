@@ -30,7 +30,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
       - val/
       - test/
 
-**Reporte.md** --> documentación del proyecto
+**Reporte.md** --> [documentación del proyecto](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md)
 
 ## Descripción general
 
