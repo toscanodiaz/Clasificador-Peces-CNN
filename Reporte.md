@@ -280,6 +280,64 @@ La regularización fue moderada pero suficiente pues el dropout al final del mod
 
 ---
 
+## Visualización de resultados
+
+Capturas de pantalla de la interfaz gráfica corriendo mientras lleva a cabo algunas clasificaciones de prueba. 
+
+### 1. Knifefish
+
+<img width="1919" height="345" alt="image" src="https://github.com/user-attachments/assets/279ca341-ae3d-4a3a-970a-aecefd4f44d8" />
+
+Lo reconoció correctamente. 
+
+### 2. Gourami
+
+<img width="1919" height="450" alt="gourami" src="https://github.com/user-attachments/assets/7296632d-0c84-4129-94ae-aff99a28fcbc" />
+
+Lo reconoció correctamente. 
+
+### 3. Freshwater Eel
+
+<img width="1919" height="366" alt="eel" src="https://github.com/user-attachments/assets/97231ebe-1099-4ad0-96a9-0b69fee4cc2f" />
+
+Lo reconoció correctamente. 
+
+### Clases difíciles
+
+### 1. Tenpounder 
+
+<img width="1919" height="507" alt="tenpounder" src="https://github.com/user-attachments/assets/11a3239f-a196-481e-bfc1-d4fdf57adab6" />
+
+Aquí se ve como en una de las clases más difíciles (Tenpounder) el modelo confunde a este pez con un Indo-Pacific Tarpon, el cual se ve así: 
+
+<img width="259" height="194" alt="tarpon" src="https://github.com/user-attachments/assets/ce6f980d-052c-4893-9cf5-8f4770bbe504" /> 
+
+Se puede apreciar un poco el parecido en la morfología de los peces ergo la confusión del modelo. 
+
+### 2. Mudfish
+
+<img width="1919" height="863" alt="mudfish" src="https://github.com/user-attachments/assets/af0b43ed-9f69-41b3-bc3b-3250a36ed91a" />
+
+Lo reconoció correctamente pero con menos confianza que en los casos anteriores. 
+
+### 3. Climbing Perch
+
+<img width="1919" height="866" alt="climbingperch" src="https://github.com/user-attachments/assets/73496bd6-45e1-4a01-8a64-511d70e425df" />
+
+Lo reconoció correctamente. 
+
+### 4. Imágenes completamente no vistas 
+
+<img width="1919" height="504" alt="bangusweb" src="https://github.com/user-attachments/assets/b14b8219-5b78-476f-a9a4-2924d14bedbb" />
+
+Esta es una imagen de un pez Bangus sacada de internet, el modelo lo identificó correctamente. 
+
+<img width="1919" height="484" alt="koiweb" src="https://github.com/user-attachments/assets/12d4691a-36d3-44f4-9d35-e449462c7057" />
+
+Esta es una imagen de peces koi sacada de internet, el modelo los confundió con peces dorados, pues no entrenó con ningún ejemplo de pez koi. 
+
+---
+
 # Conclusiones
 
 Se logró entrenar un modelo de clasificación de peces basado en una CNN profunda aplicando correctamente las etapas clave del aprendizaje profundo que son preprocesamiento, feature extraction, optimización y evaluación con las métricas reales. Por medio de tres iteraciones se observó que aumentar el número de épocas y mantener un entrenamiento estable con AdamW, StepLR, Dropout, augmentaciones de datos etc mejoró significativamente la capacidad de generalización del modelo hasta alcanzar un 94.69% de accuracy en validación. 
