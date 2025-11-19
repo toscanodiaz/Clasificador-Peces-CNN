@@ -10,7 +10,7 @@
 
 Se entrenó un clasificador multiclase para reconocer 31 especies de peces del Fish Dataset de Kaggle. Después de tres iteraciones de entrenamiento, el mejor punto se alcanzó en la época 49 de la tercera iteración (50 épocas), con 94.7% de exactitud, val loss de 0.2391 y F1 de 0.937. 
 
-**Dataset**: “Fish Dataset” de Kaggle (imágenes organizadas por especie). Conjunto dividido en train/val/test. Las imágenes se redimensionaron a 224×224 RGB. 
+**Dataset**: [Fish Dataset](https://www.kaggle.com/datasets/markdaniellampa/fish-dataset) de Kaggle (imágenes organizadas por especie). Conjunto dividido en train/val/test. Las imágenes se redimensionaron a 224×224 RGB. 
 
 **Métricas principales**: accuracy en validación y F1. 
 
