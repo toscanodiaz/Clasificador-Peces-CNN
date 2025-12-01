@@ -2,8 +2,6 @@
 
 <img src="https://github.com/user-attachments/assets/8451c155-1ba3-4cf3-ba50-0fc3c4ddc82a" alt="imagen" width="552" />
 
-
-
 ---
 
 # Problema y datos
@@ -355,3 +353,45 @@ Aunque el entrenamiento se debió realizar en GPU el proceso confirmó el impact
 ---
 
 <img  src="https://github.com/user-attachments/assets/acbb9132-e825-4a4a-8962-da8e1cede0cb" alt="descarga" width="452" height="361" /> 
+
+---
+
+# Anexos: verificación de conocimiento 
+
+## FishClassifier: explicación completa del código y toma de decisiones 
+
+El siguiente reporte es un análisis a detalle del código perteneciente al modelo presentado anteriormente incluyendo explicaciones detalladas de los cuatro archivos que forman parte del pipeline del proyecto: 
+
+model_fish.py: aquí se lleva a cabo lo más importante del proyecto que es la definición de la CNN, el proceso de entrenamiento completo y evaluación. 
+
+run_fish.py: script para lanzar entrenamiento desde consola con hiperparámetros. 
+
+plot_fish.py: este archivo procesa los logs del entrenamiento para generar gráficas y CSVs como visualización de resultados. 
+
+UI_fish.py: convierte el modelo en una web usando Gradio.
+
+### model_fish.py
+
+### Imports
+Aquí se manejan todos los componentes necesarios para el desarrollo, entrenamiento y evaluación del modelo, cubriendo el manejo de atchivos, tiempo, JSON, aleatoriedad, Numpy, etc... 
+
+### Seed 
+La semilla se fija para asegurar reproducibilidad en los experimentos; como cada lubrería tieene su propio generador de números aleatorios hay que fijar la semilla en cada una por separado, así la inicialización de los pesos, el orden de los batches y cualquier otra operación aleatoria producirá resultados similares para facilitar su comparación y, por ende, la evaluación del modelo. 
+
+### CNN - arquitectura de la red
+Esta clase define la arquitectura de la red convolucional utilizada en el proyecto, la cual se conforma por un patrón que se repite cinco veces; básicamente cada bloque toma la imagen o feature map previamente transformado y le aplica dos convolucones seguidas para encontrar características tipo bordes/texturas. Después se pasa por un BatchNorm que estabiliza el entrenamiento ya que se asegura de que las activaciones de cada capa se queden en un rango estable calculando su media y varianza en todo el lote y transformándolas en media = 0 y desviación estándar = 1 --> normalización. Posteriormente se introduce no linealidad con la funcion de activación ReLU en la capa de salida para que la red comience a aprender patrones complejos/mapeos no lineales y a combinarlos para discriminar su detección (sólo las activaciones positivas pasan a la siguiente capa). Al terminar las dos capas Conv + BN + ReLU se hace un MaxPool para reducir el tamaño espacial de la imagen al pasar un kernel 3x3, quedándose con el valor más alto en cada posición. A medida que se avanza por los bloques se condensa la información y el modelo ve más conceptos que pixeles por así decirlo; como funciona de forma jerárquica se va subiendo de nivel de abstracción en cada repetición pasando de reconocer sólo bordes o colores en el primer bloque a ditsinguir features morfológicas más específicas que diferencian a una especia de otra en los bloques finales. 
+
+Al terminar de pasar por los bloques queda un mapa condensado pero con muchos canales por lo tanto el Global Average Pooling calcula la media de todos los elementos, sacando el promedio de los valores espaciales y dando como salida un vector k donde cada elemento condensa lo que ha visto la red sin miportar su ubicación en la imagen (promedio global del feature map). Para finalizar el vector se pasa a una capa lineal donde se le asigna un logit a cada clase de pez combinando los elementos del vector, o sea características, con los pesos aprendidos durante el entrenamiento, lo que resulta en que cuando la red vea un pez, el logit más alto será el que corresponda a ese pez. 
+
+### Bloques convolucionales 
+Aquí es justo donde se encapsula el patrón previamente comentado que se repite en toda la arquitectura. Se construye un módulo que toma in_ch canales de entrada y devuelve out_ch canales de salida, aplica dos convoluciones 3x3 con padding para mantener su tamaño, normaliza las activaciones, introduce no linealidad y reduce la resolución a la mitad; en self.features se encadenan cinco bloques y sólo cambian cuántos canales entran y salen (3 --> 32 --> 64 --> 128 --> 256). Cada bloque hace downsampling empezando en 224x224 u después de cinco Maxpool queda de aprox 7x7. 
+Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en una VGG simple que consta de la estrucctura clara de convolución --> normalización --> activación repetida varias veces lo que brinda la profundidad necesaria para el aprendizaje más avanzado de la red sin que sea un modelo tan grande y manteniendo simplicidad. 
+
+--- aqui fotos de evaluacion feature maps x bloque ---
+
+
+
+
+
+
+
