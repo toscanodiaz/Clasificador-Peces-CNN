@@ -430,7 +430,7 @@ def block(in_ch, out_ch):
 ```
 
 Aquí es justo donde se encapsula el patrón previamente comentado que se repite en toda la arquitectura. Se construye un módulo que toma `in_ch` canales de entrada y devuelve `out_ch` canales de salida, aplica dos convoluciones 3x3 con `padding` para mantener su tamaño, normaliza las activaciones, introduce no linealidad y reduce la resolución a la mitad; en `self.features` se encadenan cinco bloques y sólo cambian cuántos canales entran y salen (3 --> 32 --> 64 --> 128 --> 256). Cada bloque hace downsampling empezando en 224x224 u después de cinco Maxpool queda de aprox 7x7. 
-Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en una VGG simple que consta de la estrucctura clara de convolución --> normalización --> activación repetida varias veces lo que brinda la profundidad necesaria para el aprendizaje más avanzado de la red sin que sea un modelo tan grande y manteniendo simplicidad. 
+Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en una VGG simple que consta de la estrucctura de convolución --> normalización --> activación repetida varias veces lo que brinda la profundidad necesaria para el aprendizaje más avanzado de la red sin que sea un modelo tan grande y manteniendo simplicidad. 
 
 ## Evolución feature maps por bloque
 
@@ -449,7 +449,7 @@ Se ve como en este primer bloque la red sólo detecta los patrones más generale
 ### Bloque 2
 <img width="900" height="450" alt="block2_features" src="https://github.com/user-attachments/assets/e456cdad-ace3-41bf-a813-efbdf302b68f" />
 
-En este segundo bloque aún se puede distinguir el pez pero se ve más pixeleado, también se observan los filtros que se enfocan en partes como el ojo del pez, la aleta, el fondo, la forma del cuerpo etc. Se comienza a descomponer en partes relevantes y parece más una estructura que una imagen. 
+En este segundo bloque aún se puede distinguir el pez pero se ve más pixeleado, también se observan los filtros que se enfocan en partes como el ojo del pez, la aleta, el fondo, la forma del cuerpo etc. Se comienza a descomponer en partes relevantes y parece más una estructura que una imagen pero aún se pueden ver algunas texturas. 
 
 Después del bloque 2: torch.Size([1, 64, 56, 56])
 
@@ -463,7 +463,7 @@ Después del bloque 3: torch.Size([1, 128, 28, 28])
 ### Bloque 4
 <img width="900" height="450" alt="block4_features" src="https://github.com/user-attachments/assets/733ce66d-99d1-4c39-a3c6-38764837707f" />
 
-Aquí ya no se pueden apreciar detalles, texturas ni contornos, sólo quedala estructura conceptual, algunos canales activan ciertas partes del pez como su contorno y parte posterior. Esto demuestra activaciones de alto nivel donde el modelo combina las formas y zonas relevantes para clasificar la especie de pez. 
+Aquí ya no se pueden apreciar detalles ni texturas, sólo quedala estructura conceptual. Algunos canales activan ciertas partes del pez como su contorno y parte posterior lo que demuestra activaciones de alto nivel donde el modelo combina las formas y zonas relevantes para clasificar la especie de pez. 
 
 Después del bloque 4: torch.Size([1, 256, 14, 14])
 
