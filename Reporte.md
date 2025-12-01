@@ -360,15 +360,7 @@ Aunque el entrenamiento se debió realizar en GPU el proceso confirmó el impact
 
 ## FishClassifier: explicación completa del código y toma de decisiones 
 
-El siguiente reporte es un análisis a detalle del código perteneciente al modelo presentado anteriormente incluyendo explicaciones detalladas de los cuatro archivos que forman parte del pipeline del proyecto: 
-
-model_fish.py: aquí se lleva a cabo lo más importante del proyecto que es la definición de la CNN, el proceso de entrenamiento completo y evaluación. 
-
-run_fish.py: script para lanzar entrenamiento desde consola con hiperparámetros. 
-
-plot_fish.py: este archivo procesa los logs del entrenamiento para generar gráficas y CSVs como visualización de resultados. 
-
-UI_fish.py: convierte el modelo en una web usando Gradio.
+El siguiente reporte es un análisis a detalle del código perteneciente al modelo presentado anteriormente incluyendo explicaciones detalladas del archivo **model_fish.py** que es donde se lleva a cabo lo más importante del proyecto: la definición de la CNN, el proceso de entrenamiento completo y evaluación. 
 
 ### model_fish.py
 
@@ -437,7 +429,7 @@ def block(in_ch, out_ch):
             block(C*8, C*8), 
 ```
 
-Aquí es justo donde se encapsula el patrón previamente comentado que se repite en toda la arquitectura. Se construye un módulo que toma in_ch canales de entrada y devuelve out_ch canales de salida, aplica dos convoluciones 3x3 con padding para mantener su tamaño, normaliza las activaciones, introduce no linealidad y reduce la resolución a la mitad; en self.features se encadenan cinco bloques y sólo cambian cuántos canales entran y salen (3 --> 32 --> 64 --> 128 --> 256). Cada bloque hace downsampling empezando en 224x224 u después de cinco Maxpool queda de aprox 7x7. 
+Aquí es justo donde se encapsula el patrón previamente comentado que se repite en toda la arquitectura. Se construye un módulo que toma `in_ch` canales de entrada y devuelve `out_ch` canales de salida, aplica dos convoluciones 3x3 con `padding` para mantener su tamaño, normaliza las activaciones, introduce no linealidad y reduce la resolución a la mitad; en `self.features` se encadenan cinco bloques y sólo cambian cuántos canales entran y salen (3 --> 32 --> 64 --> 128 --> 256). Cada bloque hace downsampling empezando en 224x224 u después de cinco Maxpool queda de aprox 7x7. 
 Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en una VGG simple que consta de la estrucctura clara de convolución --> normalización --> activación repetida varias veces lo que brinda la profundidad necesaria para el aprendizaje más avanzado de la red sin que sea un modelo tan grande y manteniendo simplicidad. 
 
 ## Evolución feature maps por bloque
@@ -503,7 +495,7 @@ En caso de cambiar o quitar un elemento de este bloque:
         self.classifier = nn.Linear(C*8, num_classes)
 ```
 
-Esta parte final de la red toma la información extraída durante los bloques convolucionales para transformarla en una predicción. Durante el entrenamiento el Dropout apaga alguna neuronas seleccionadas aleatoriamente para asegurar que la red no esté aprendiendo más en una que en otra y distribuir de mejor manera su aprendizaje para que generalice mejor con imágenes nunca vistas, además de evitar el riesgo de overdfitting en datasets no tan masivos como el utilizado para este proyecto. Posteriormente el Adaptive Average Pooling promedia los elementos de cada canal en el mapa de activaciones sin importar su tamaño espacial, o sea, si se tenía [C, H, W] después se obtiene [C, 1, 1]. Cada canal se convierte en un sólo número n reduciendo bastante la cantidad de parámetros y haciendo que la red sea más robusta con variaciaones mínimas en la posición/tamaño de las features en la imagen. El vector resultante C*8 pasa a la capa lineal que funge como clasficador, combina los números con los pesos y realiza la predicción final con base en el valor más alto de los logits. En caso de cambiar o quitar algún elemento: 
+Esta parte final de la red toma la información extraída durante los bloques convolucionales para transformarla en una predicción. Durante el entrenamiento el `Dropout` apaga alguna neuronas seleccionadas aleatoriamente para asegurar que la red no esté aprendiendo más en una que en otra y distribuir de mejor manera su aprendizaje para que generalice mejor con imágenes nunca vistas, además de evitar el riesgo de overdfitting en datasets no tan masivos como el utilizado para este proyecto. Posteriormente el Adaptive Average Pooling promedia los elementos de cada canal en el mapa de activaciones sin importar su tamaño espacial, o sea, si se tenía `[C, H, W]` después se obtiene `[C, 1, 1]`. Cada canal se convierte en un sólo número `n` reduciendo bastante la cantidad de parámetros y haciendo que la red sea más robusta con variaciaones mínimas en la posición/tamaño de las features en la imagen. El vector resultante `C*8` pasa a la capa lineal que funge como clasficador, combina los números con los pesos y realiza la predicción final con base en el valor más alto de los logits. En caso de cambiar o quitar algún elemento: 
 
 
 | Quitar/cambiar | ¿Qué pasaría? | 
@@ -522,7 +514,7 @@ Esta parte final de la red toma la información extraída durante los bloques co
         return self.classifier(x)
 ```
 
-Esta función básicamente ensambla todo el proceso que siguen las imágenes dentro del modelo (cómo funcionan los elementos); self.features pasa el input por todos los bloques convirtiéndolos a feature maps, después self.dropout regulariza ese mapa y self.gap convierte a un vector por canal. Se deja como un sólo vector por imagen para la toma de decisiones y self.classifier convierte el vector a un valor por clase (logit). 
+Esta función básicamente ensambla todo el proceso que siguen las imágenes dentro del modelo (cómo funcionan los elementos); `self.features` pasa el input por todos los bloques convirtiéndolos a feature maps, después `self.dropout` regulariza ese mapa y `self.gap` convierte a un vector por canal. Se deja como un sólo vector por imagen para la toma de decisiones y `self.classifier` convierte el vector a un valor por clase (logit). 
 
 ## Train one epoch
 
@@ -564,9 +556,9 @@ En local no pude aprovechar mi GPU integrada Intel Iris Xe pues PyTorch sólo pe
 
 </details>
 
-Antes del forward se establece a None el gradiente acumulado de los parámetros del batch anterior con optimizer.zero_grad para evitar que los nuevos gradientes se sumen a ellosy que las updates de pesos no sean correctas pues el gradiente representaría el error de muchos batches. Después se hace un forward pass donde el batch de entrada se integra en la red con logits=model(x) donde el modelo procesa la información mediante todas las capas y se calcula la pérdida con CrossEntropyLoss que mide el error entre lo predicho y la imagen real. En loss.backward se usa ese error para ir corrigiendo los pesos del modelo por medio de backpropagarion que usa la regla de la cadena para sacar el gradiente de loss con respecto a cada parámetro. Finalmente optimizer.step() toma esos gradientes para aplicarlos a los pesos del modelo y actualizarlos, moviéndolos en dirección contraria al gradiente para reducir la pérdida. 
+Antes del forward se establece a `None` el gradiente acumulado de los parámetros del batch anterior con `optimizer.zero_grad` para evitar que los nuevos gradientes se sumen a ellosy que las updates de pesos no sean correctas pues el gradiente representaría el error de muchos batches. Después se hace un forward pass donde el batch de entrada se integra en la red con `logits=model(x)` donde el modelo procesa la información mediante todas las capas y se calcula la pérdida con `CrossEntropyLoss` que mide el error entre lo predicho y la imagen real. En `loss.backward` se usa ese error para ir corrigiendo los pesos del modelo por medio de backpropagarion que usa la regla de la cadena para sacar el gradiente de loss con respecto a cada parámetro. Finalmente `optimizer.step()` toma esos gradientes para aplicarlos a los pesos del modelo y actualizarlos, moviéndolos en dirección contraria al gradiente para reducir la pérdida. 
 
-La función acumula métricas a medida que avanza el entrenamiento para monitorear su perfomance; multiplica el loss.item() por el tamaño del batch pues la cantidad de imágenes por lote varía y se debe asegurar que por ejemplo el error de un batch de 100 imágenes pese el doble que el de un batch de 50 imágenes. Esta ponderación se suma a running que es una variable acumuladora que al finalizar la época se divide entre el número de ejemplos y da la pérdida media ponderada. Después se mide el accuracy tomando el logit más alto preds=logits.argmax(1) y hace el conteo de cuántas predicciones sí coinciden con las labels verdaderas; los aciertos se suman a la variable correct y el número de imágenes procesadas a la variable total. Gracias a esto es que la barra de progreso de tqdm se va actuazilando en tiempo real y muestra loss y accuracy promedio hasta ese punto haciedno fácil la visualización de la convergencia del modelo. 
+La función acumula métricas a medida que avanza el entrenamiento para monitorear su perfomance; multiplica el `loss.item()` por el tamaño del batch pues la cantidad de imágenes por lote varía y se debe asegurar que por ejemplo el error de un batch de 100 imágenes pese el doble que el de un batch de 50 imágenes. Esta ponderación se suma a `running` que es una variable acumuladora que al finalizar la época se divide entre el número de ejemplos y da la pérdida media ponderada. Después se mide el accuracy tomando el logit más alto preds=logits.argmax(1) y hace el conteo de cuántas predicciones sí coinciden con las labels verdaderas; los aciertos se suman a la variable `correct` y el número de imágenes procesadas a la variable `total`. Gracias a esto es que la barra de progreso de `tqdm` se va actuazilando en tiempo real y muestra loss y accuracy promedio hasta ese punto haciedno fácil la visualización de la convergencia del modelo. 
 
 ## Evaluate
 
@@ -605,9 +597,9 @@ def evaluate(model, loader, criterion, device, full=False, class_names=None, pha
     return metrics
 ```
 
-Hace el proceso de evaluación del modelo en val y test; primero que nada se deben deshabilitar las operaciones que sólo sirven para el entrenamiento/aprendizaje garantizando que nada de lo que se haga en la evaluación modifique los parámetros del modelo; para esto se activa @torch.no_grad() que detiene el cálculo de gradientes haciendo como si estuviera en modo lectura pues ya no tiene que seguir construyendo ni almacenando operaciones internas simplemente las ejecuta como matemática normal sin un registro. También se llama a model.eval para fijar el modelo en modo evaluacipo, esto igual cambia el comportamiento de capas como Dropout, que en este punto deja de apagar neuronas para que todas estén activas y que la predicción utilice toda la capacidad del modelo; aquí el BatchNorm empieza a usar las stats fijas acumuladas en el entrenamiento en lugar de seguirlas actualizando para que el output de una imagen específica sea siempre igual independientemente de en qué batch de prueba esté. Todo esto asegura la evaluación consistente del modelo sin que se vea afectado por la aleatoriedad del entremaniento. 
+Hace el proceso de evaluación del modelo en val y test; primero que nada se deben deshabilitar las operaciones que sólo sirven para el entrenamiento/aprendizaje garantizando que nada de lo que se haga en la evaluación modifique los parámetros del modelo; para esto se activa `@torch.no_grad()` que detiene el cálculo de gradientes haciendo como si estuviera en modo lectura pues ya no tiene que seguir construyendo ni almacenando operaciones internas simplemente las ejecuta como matemática normal sin un registro. También se llama a `model.eval` para fijar el modelo en modo evaluación, esto igual cambia el comportamiento de capas como Dropout, que en este punto deja de apagar neuronas para que todas estén activas y que la predicción utilice toda la capacidad del modelo; aquí el BatchNorm empieza a usar las stats fijas acumuladas en el entrenamiento en lugar de seguirlas actualizando para que el output de una imagen específica sea siempre igual independientemente de en qué batch de prueba esté. Todo esto asegura la evaluación consistente del modelo sin que se vea afectado por la aleatoriedad del entremaniento. 
 
-Esta función de evaluación es casi como el loop de entrenamiento pero omite algunas cosas importantes: recorre el DataLoader batch por bactch pero ya no hace el backward ni actualiza los pesos. Para cada batch se pasan las imágenes al modelo logits=model(x) y se calcula la pérdida usando la misma función CrossEntropy que en el entrenamiento para cuantificar qué tan malo es el desempeño en ese batch. Al activar el full=True la función empieza a guardar listas de predicciones y labels reales de cada batch adicional al loss y accuracy. Cuando ya procesó todos los batches une las listas entre sí para poder calcular métricas más complejas y descriptivas las cuales representan el performance del conjunto de datos completo en lugar de evaluar por batches individuales. Las métricas resultantes de este cálculo son: 
+Esta función de evaluación es casi como el loop de entrenamiento pero omite algunas cosas importantes: recorre el DataLoader batch por bactch pero ya no hace el backward ni actualiza los pesos. Para cada batch se pasan las imágenes al modelo `logits=model(x)` y se calcula la pérdida usando la misma función CrossEntropy que en el entrenamiento para cuantificar qué tan malo es el desempeño en ese batch. Al activar el `full=True` la función empieza a guardar listas de predicciones y labels reales de cada batch adicional al loss y accuracy. Cuando ya procesó todos los batches une las listas entre sí para poder calcular métricas más complejas y descriptivas las cuales representan el performance del conjunto de datos completo en lugar de evaluar por batches individuales. Las métricas resultantes de este cálculo son: 
 
 | Métrica | ¿Qué hace? | 
 |----------|-----------|
@@ -616,3 +608,66 @@ Esta función de evaluación es casi como el loop de entrenamiento pero omite al
 | Classification report | Muestra un desglose de las métricas acc, recall y F1 para cada una de las 31 especies de peces. Sirve para diagnosticar problemas: recall bajo --> muchos false negatives. acc bajo --> muchos false positives |
 
 Esta función siempre devuelve al menos loss y acc, pero devvuelve las demás métricas mencionadas si full=True. 
+
+## Train and eval - Pipeline
+Esta es la función que hace todo el pipeline 
+
+### Configuración de reproducibilidad y device
+```
+set_seed(seed)
+    device = torch.device("cpu")
+```
+
+### Construcción de rutas
+```
+bash
+```
+
+### Definición de transformaciones
+```
+bash
+```
+
+### Creación de datasets y dataloaders
+```
+bash
+```
+
+### Inicialización del modelo, criterio, optimizador y scheduler
+```
+bash
+```
+
+### Definir nombres de salida
+```
+bash
+```
+
+### Variables de early stopping
+```
+bash
+```
+
+### Bucle de entrenamiento
+```
+bash
+```
+
+### Carga de mejor checkpoint
+```
+bash
+```
+
+### Evaluación final en val y test
+```
+bash
+```
+
+### Guardado de métricas en metrics.json
+```
+bash
+```
+
+
+
+
