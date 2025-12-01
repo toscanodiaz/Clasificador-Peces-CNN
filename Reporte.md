@@ -24,7 +24,7 @@ Se entrenó un clasificador multiclase para reconocer 31 especies de peces del F
 
 --> Fully Connected (FC)
 
-### Bloques convolucionales
+### Bloques convolucionalesC:\Users\tosca\OneDrive\Documents\tec\septimo\benji\evidenciaDL\fish_dataset\FishImgDataset\val\Gourami\Picture7.jpg
 Cada bloque tiene dos capas convolucionales consecutivas con kernel 3×3 seguidas de Batch Normalization y activación ReLU:
 
 - **Conv2D 3×3**: extraen patrones visuales de manera jerárquica
@@ -442,28 +442,40 @@ Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en 
 
 ## Evolución feature maps por bloque
 
+### Imagen original
+
+<img width="259" height="194" alt="original" src="https://github.com/user-attachments/assets/8cfdfff2-3d25-4896-b320-8b71066caac7">
+
+---
+
+### Bloque 1 
+
 <img width="900" height="450" alt="block1_features" src="https://github.com/user-attachments/assets/3d625f19-63ca-44ce-a9ae-5570ae8a7532" />
 
 Se ve como en este primer bloque la red sólo detecta los patrones más generales (bordes, contrastes); la resolución de la imagen es alta por lo tanto el pez aún es reconocible y las convoluciones trabajan con datos visuales similares a la imagen original. Después del bloque 1: torch.Size([1, 32, 112, 112])
 
+### Bloque 2
 <img width="900" height="450" alt="block2_features" src="https://github.com/user-attachments/assets/e456cdad-ace3-41bf-a813-efbdf302b68f" />
 
 En este segundo bloque aún se puede distinguir el pez pero se ve más pixeleado, también se observan los filtros que se enfocan en partes como el ojo del pez, la aleta, el fondo, la forma del cuerpo etc. Se comienza a descomponer en partes relevantes y parece más una estructura que una imagen. 
 
 Después del bloque 2: torch.Size([1, 64, 56, 56])
 
+### Bloque 3
 <img width="900" height="450" alt="block3_features" src="https://github.com/user-attachments/assets/12436a96-75f0-46ba-b612-abb2b1e3c7ee" />
 
 Ahora en esta capa ya es más difícil reconocer al pez, más bien se asemeja a un heatmap centrado en formas destacadas/relevantes; la representación es abstracta en su mayoría. 
 
 Después del bloque 3: torch.Size([1, 128, 28, 28])
 
+### Bloque 4
 <img width="900" height="450" alt="block4_features" src="https://github.com/user-attachments/assets/733ce66d-99d1-4c39-a3c6-38764837707f" />
 
 Aquí ya no se pueden apreciar detalles, texturas ni contornos, sólo quedala estructura conceptual, algunos canales activan ciertas partes del pez como su contorno y parte posterior. Esto demuestra activaciones de alto nivel donde el modelo combina las formas y zonas relevantes para clasificar la especie de pez. 
 
 Después del bloque 4: torch.Size([1, 256, 14, 14])
 
+### Bloque 5
 <img width="900" height="450" alt="block5_features" src="https://github.com/user-attachments/assets/04599e2e-c1a2-47df-ba52-870e8021ce3f" />
 
 Este es el nivel máximo de abstracción donde las cuadrículas de activación ya son irreconocibles visualmente y la red sólo se queda con la información semántica y no la visual. Cada canal representa si hay o no patrones que el modelo reconozcca como relevantes para diferenciar especies. 
