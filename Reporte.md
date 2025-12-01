@@ -513,6 +513,35 @@ Esta parte final de la red toma la información extraída durante los bloques co
 Esta función básicamente ensambla todo el proceso que siguen las imágenes dentro del modelo (cómo funcionan los elementos); self.features pasa el input por todos los bloques convirtiéndolos a feature maps, después self.dropout regulariza ese mapa y self.gap convierte a un vector por canal. Se deja como un sólo vector por imagen para la toma de decisiones y self.classifier convierte el vector a un valor por clase (logit). 
 
 ## Train one epoch
+
+```
+def train_one_epoch(model, loader, criterion, optimizer, device, epoch=1, total_epochs=1):
+    model.train()
+    total, correct, running = 0, 0, 0.0
+    pbar = tqdm(loader, desc=f"Train [{epoch}/{total_epochs}]", leave=True, ncols=100)
+    for x, y in pbar:
+        x, y = x.to(device), y.to(device)
+        optimizer.zero_grad(set_to_none=True)
+
+        logits = model(x)
+        loss = criterion(logits, y)
+
+        loss.backward()
+        optimizer.step()
+
+        running += loss.item() * x.size(0)
+        preds = logits.argmax(1)
+        correct += (preds == y).sum().item()
+        total += y.size(0)
+
+        pbar.set_postfix({
+            "loss": f"{running/max(1,total):.4f}",
+            "acc": f"{correct/max(1,total):.4f}"
+        })
+
+    return running/total, correct/total
+```
+
 Este es el ciclo completo de entrenamiento que se lleva a cabo una vez por época y donde empieza el aprendizaje. Primero la función hace que el modelo se ponga en modo de entrenamiento con model.train() lo que cambia el comportamiento de algunas capas como por ejemplo Dropout que aquí es donde empieza a apagar neuronas aleatoriamente y BatchNorm que recopila stats de forma interna lo cual es exclusivo de esta etapa de entrenamiento. Luego inicializa contadores de loss acumulado, número de predicciones acertadas y el total de los ejemplos procesados, lo cual sirve para generar métricas al final de cada época. 
 El loop principal se hace sobre el DataLoader el cual devuelve cada batch (x) y labels (y) en cada iteración; estas se envían al device configurado que en este caso es la CPU. 
 
@@ -528,6 +557,42 @@ Antes del forward se establece a None el gradiente acumulado de los parámetros 
 La función acumula métricas a medida que avanza el entrenamiento para monitorear su perfomance; multiplica el loss.item() por el tamaño del batch pues la cantidad de imágenes por lote varía y se debe asegurar que por ejemplo el error de un batch de 100 imágenes pese el doble que el de un batch de 50 imágenes. Esta ponderación se suma a running que es una variable acumuladora que al finalizar la época se divide entre el número de ejemplos y da la pérdida media ponderada. Después se mide el accuracy tomando el logit más alto preds=logits.argmax(1) y hace el conteo de cuántas predicciones sí coinciden con las labels verdaderas; los aciertos se suman a la variable correct y el número de imágenes procesadas a la variable total. Gracias a esto es que la barra de progreso de tqdm se va actuazilando en tiempo real y muestra loss y accuracy promedio hasta ese punto haciedno fácil la visualización de la convergencia del modelo. 
 
 ## Evaluate
+
+```
+@torch.no_grad()
+def evaluate(model, loader, criterion, device, full=False, class_names=None, phase_name="Val", epoch=1, total_epochs=1):
+    model.eval()
+    total, correct, running = 0, 0, 0.0
+    all_p, all_y = [], []
+    pbar = tqdm(loader, desc=f"{phase_name} [{epoch}/{total_epochs}]", leave=True, ncols=100)
+    for x, y in pbar:
+        x, y = x.to(device), y.to(device)
+        logits = model(x)
+        loss = criterion(logits, y)
+
+        running += loss.item() * x.size(0)
+        preds = logits.argmax(1)
+        correct += (preds == y).sum().item()
+        total += y.size(0)
+
+        pbar.set_postfix({"loss": f"{running/max(1,total):.4f}",
+                          "acc": f"{correct/max(1,total):.4f}"})
+
+        if full:
+            all_p.append(preds.cpu().numpy())
+            all_y.append(y.cpu().numpy())
+
+    metrics = {"loss": running/total, "acc": correct/total}
+    if full and all_p:
+        import numpy as np
+        p = np.concatenate(all_p); t = np.concatenate(all_y)
+        macro = f1_score(t, p, average="macro")
+        cm = confusion_matrix(t, p).tolist()
+        rep = classification_report(t, p, target_names=class_names, digits=4)
+        metrics.update({"macro_f1": float(macro), "confusion_matrix": cm, "classification_report": rep})
+    return metrics
+```
+
 Hace el proceso de evaluación del modelo en val y test; primero que nada se deben deshabilitar las operaciones que sólo sirven para el entrenamiento/aprendizaje garantizando que nada de lo que se haga en la evaluación modifique los parámetros del modelo; para esto se activa @torch.no_grad() que detiene el cálculo de gradientes haciendo como si estuviera en modo lectura pues ya no tiene que seguir construyendo ni almacenando operaciones internas simplemente las ejecuta como matemática normal sin un registro. También se llama a model.eval para fijar el modelo en modo evaluacipo, esto igual cambia el comportamiento de capas como Dropout, que en este punto deja de apagar neuronas para que todas estén activas y que la predicción utilice toda la capacidad del modelo; aquí el BatchNorm empieza a usar las stats fijas acumuladas en el entrenamiento en lugar de seguirlas actualizando para que el output de una imagen específica sea siempre igual independientemente de en qué batch de prueba esté. Todo esto asegura la evaluación consistente del modelo sin que se vea afectado por la aleatoriedad del entremaniento. 
 
 Esta función de evaluación es casi como el loop de entrenamiento pero omite algunas cosas importantes: recorre el DataLoader batch por bactch pero ya no hace el backward ni actualiza los pesos. Para cada batch se pasan las imágenes al modelo logits=model(x) y se calcula la pérdida usando la misma función CrossEntropy que en el entrenamiento para cuantificar qué tan malo es el desempeño en ese batch. Al activar el full=True la función empieza a guardar listas de predicciones y labels reales de cada batch adicional al loss y accuracy. Cuando ya procesó todos los batches une las listas entre sí para poder calcular métricas más complejas y descriptivas las cuales representan el performance del conjunto de datos completo en lugar de evaluar por batches individuales. Las métricas resultantes de este cálculo son: 
