@@ -375,23 +375,167 @@ UI_fish.py: convierte el modelo en una web usando Gradio.
 ### Imports
 Aquí se manejan todos los componentes necesarios para el desarrollo, entrenamiento y evaluación del modelo, cubriendo el manejo de atchivos, tiempo, JSON, aleatoriedad, Numpy, etc... 
 
+```
+import os, time, json, random
+from datetime import datetime
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from tqdm import tqdm
+
+```
+
 ### Seed 
-La semilla se fija para asegurar reproducibilidad en los experimentos; como cada lubrería tieene su propio generador de números aleatorios hay que fijar la semilla en cada una por separado, así la inicialización de los pesos, el orden de los batches y cualquier otra operación aleatoria producirá resultados similares para facilitar su comparación y, por ende, la evaluación del modelo. 
+La semilla se fija para asegurar reproducibilidad en los experimentos; como cada librería tiene su propio generador de números aleatorios hay que fijar la semilla en cada una por separado, así la inicialización de los pesos, el orden de los batches y cualquier otra operación aleatoria producirá resultados similares para facilitar su comparación y, por ende, la evaluación del modelo. 
+
+```
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+```
 
 ### CNN - arquitectura de la red
+
+```
+class CNN(nn.Module):
+    """
+    [Conv-BN-ReLU]*2 + MaxPool  x5  -> GAP -> FC
+    """
+    def __init__(self, num_classes: int, base_ch: int = 32, dropout_p: float = 0.3):
+        super().__init__()
+        C = base_ch
+```
+
 Esta clase define la arquitectura de la red convolucional utilizada en el proyecto, la cual se conforma por un patrón que se repite cinco veces; básicamente cada bloque toma la imagen o feature map previamente transformado y le aplica dos convolucones seguidas para encontrar características tipo bordes/texturas. Después se pasa por un BatchNorm que estabiliza el entrenamiento ya que se asegura de que las activaciones de cada capa se queden en un rango estable calculando su media y varianza en todo el lote y transformándolas en media = 0 y desviación estándar = 1 --> normalización. Posteriormente se introduce no linealidad con la funcion de activación ReLU en la capa de salida para que la red comience a aprender patrones complejos/mapeos no lineales y a combinarlos para discriminar su detección (sólo las activaciones positivas pasan a la siguiente capa). Al terminar las dos capas Conv + BN + ReLU se hace un MaxPool para reducir el tamaño espacial de la imagen al pasar un kernel 3x3, quedándose con el valor más alto en cada posición. A medida que se avanza por los bloques se condensa la información y el modelo ve más conceptos que pixeles por así decirlo; como funciona de forma jerárquica se va subiendo de nivel de abstracción en cada repetición pasando de reconocer sólo bordes o colores en el primer bloque a ditsinguir features morfológicas más específicas que diferencian a una especia de otra en los bloques finales. 
 
 Al terminar de pasar por los bloques queda un mapa condensado pero con muchos canales por lo tanto el Global Average Pooling calcula la media de todos los elementos, sacando el promedio de los valores espaciales y dando como salida un vector k donde cada elemento condensa lo que ha visto la red sin miportar su ubicación en la imagen (promedio global del feature map). Para finalizar el vector se pasa a una capa lineal donde se le asigna un logit a cada clase de pez combinando los elementos del vector, o sea características, con los pesos aprendidos durante el entrenamiento, lo que resulta en que cuando la red vea un pez, el logit más alto será el que corresponda a ese pez. 
 
 ### Bloques convolucionales 
+
+```
+def block(in_ch, out_ch):
+            return nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, 3, padding=1),
+                nn.BatchNorm2d(out_ch),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(out_ch, out_ch, 3, padding=1),
+                nn.BatchNorm2d(out_ch),
+                nn.ReLU(inplace=True),
+                nn.MaxPool2d(2)
+            )
+
+        self.features = nn.Sequential(
+            block(3,    C),
+            block(C,   C*2), 
+            block(C*2, C*4), 
+            block(C*4, C*8), 
+            block(C*8, C*8), 
+```
+
 Aquí es justo donde se encapsula el patrón previamente comentado que se repite en toda la arquitectura. Se construye un módulo que toma in_ch canales de entrada y devuelve out_ch canales de salida, aplica dos convoluciones 3x3 con padding para mantener su tamaño, normaliza las activaciones, introduce no linealidad y reduce la resolución a la mitad; en self.features se encadenan cinco bloques y sólo cambian cuántos canales entran y salen (3 --> 32 --> 64 --> 128 --> 256). Cada bloque hace downsampling empezando en 224x224 u después de cinco Maxpool queda de aprox 7x7. 
 Esto se hizo así porque es una arquitectura conocida y efectiva, se inspira en una VGG simple que consta de la estrucctura clara de convolución --> normalización --> activación repetida varias veces lo que brinda la profundidad necesaria para el aprendizaje más avanzado de la red sin que sea un modelo tan grande y manteniendo simplicidad. 
 
---- aqui fotos de evaluacion feature maps x bloque ---
+## Evolución feature maps por bloque
+
+<img width="900" height="450" alt="block1_features" src="https://github.com/user-attachments/assets/3d625f19-63ca-44ce-a9ae-5570ae8a7532" />
+
+Se ve como en este primer bloque la red sólo detecta los patrones más generales (bordes, contrastes); la resolución de la imagen es alta por lo tanto el pez aún es reconocible y las convoluciones trabajan con datos visuales similares a la imagen original. Después del bloque 1: torch.Size([1, 32, 112, 112])
+
+<img width="900" height="450" alt="block2_features" src="https://github.com/user-attachments/assets/e456cdad-ace3-41bf-a813-efbdf302b68f" />
+
+En este segundo bloque aún se puede distinguir el pez pero se ve más pixeleado, también se observan los filtros que se enfocan en partes como el ojo del pez, la aleta, el fondo, la forma del cuerpo etc. Se comienza a descomponer en partes relevantes y parece más una estructura que una imagen. 
+
+Después del bloque 2: torch.Size([1, 64, 56, 56])
+
+<img width="900" height="450" alt="block3_features" src="https://github.com/user-attachments/assets/12436a96-75f0-46ba-b612-abb2b1e3c7ee" />
+
+Ahora en esta capa ya es más difícil reconocer al pez, más bien se asemeja a un heatmap centrado en formas destacadas/relevantes; la representación es abstracta en su mayoría. 
+
+Después del bloque 3: torch.Size([1, 128, 28, 28])
+
+<img width="900" height="450" alt="block4_features" src="https://github.com/user-attachments/assets/733ce66d-99d1-4c39-a3c6-38764837707f" />
+
+Aquí ya no se pueden apreciar detalles, texturas ni contornos, sólo quedala estructura conceptual, algunos canales activan ciertas partes del pez como su contorno y parte posterior. Esto demuestra activaciones de alto nivel donde el modelo combina las formas y zonas relevantes para clasificar la especie de pez. 
+
+Después del bloque 4: torch.Size([1, 256, 14, 14])
+
+<img width="900" height="450" alt="block5_features" src="https://github.com/user-attachments/assets/04599e2e-c1a2-47df-ba52-870e8021ce3f" />
+
+Este es el nivel máximo de abstracción donde las cuadrículas de activación ya son irreconocibles visualmente y la red sólo se queda con la información semántica y no la visual. Cada canal representa si hay o no patrones que el modelo reconozcca como relevantes para diferenciar especies. 
+
+Después del bloque 5: torch.Size([1, 256, 7, 7])
+
+Después de Dropout: torch.Size([1, 256, 7, 7])
+Después de GAP: torch.Size([1, 256, 1, 1])
+Después de Flatten: torch.Size([1, 256])
+Salida logits: torch.Size([1, 10])  (batch_size, num_classes)
+
+En caso de cambiar o quitar un elemento de este bloque: 
+
+| Quitar/cambiar | ¿Qué pasaría? | 
+|----------|-----------|
+| BatchNorm   | Entrenamiento más inestable, se tendría que ajustar con más cuidado el learning rate y se podrían ver oscilaciones fuertes u explosiones en el loss    |
+| Maxpool   |  Las features conservarían más resolución mientras avanzan los bloques y gastaría más memoria, tiempo de cómputo y riesgo de overfitting pues la red tendría muchos parámetros operando en mapas muy grandes  |
+| ReLU --> GELU/LeakyReLU | Cambiar por otra activación podría tal vez mejorar el desempeño pero la arquitectura sería menos estándar y más compleja |
+
+## Cabeza de clasificación 
+
+```
+ self.dropout = nn.Dropout(dropout_p)
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.classifier = nn.Linear(C*8, num_classes)
+```
+
+Esta parte final de la red toma la información extraída durante los bloques convolucionales para transformarla en una predicción. Durante el entrenamiento el Dropout apaga alguna neuronas seleccionadas aleatoriamente para asegurar que la red no esté aprendiendo más en una que en otra y distribuir de mejor manera su aprendizaje para que generalice mejor con imágenes nunca vistas, además de evitar el riesgo de overdfitting en datasets no tan masivos como el utilizado para este proyecto. Posteriormente el Adaptive Average Pooling promedia los elementos de cada canal en el mapa de activaciones sin importar su tamaño espacial, o sea, si se tenía [C, H, W] después se obtiene [C, 1, 1]. Cada canal se convierte en un sólo número n reduciendo bastante la cantidad de parámetros y haciendo que la red sea más robusta con variaciaones mínimas en la posición/tamaño de las features en la imagen. El vector resultante C*8 pasa a la capa lineal que funge como clasficador, combina los números con los pesos y realiza la predicción final con base en el valor más alto de los logits. En caso de cambiar o quitar algún elemento: 
 
 
+| Quitar/cambiar | ¿Qué pasaría? | 
+|----------|-----------|
+| Dropout   |  Si se elmmina, el modelo podría estar solamente memorizando los ejemplos de train en lugar de aprendiendo   |
+| GAP --> Flatten |  Si se aplanara todo el volumen en un único vector, se manejarían muchos más parámetros con riesgo de overtiffing y mucho uso de memoria         |
+| Alterar número de neuronas de salida |   En caso de que no coincida con el número real de clases el modelo no asignaría bien las labels ya que no corresponen a los datos   |
 
+## Forward - secuencia 
 
+```
+   def forward(self, x):
+        x = self.features(x)
+        x = self.dropout(x)
+        x = self.gap(x).flatten(1)
+        return self.classifier(x)
+```
 
+Esta función básicamente ensambla todo el proceso que siguen las imágenes dentro del modelo (cómo funcionan los elementos); self.features pasa el input por todos los bloques convirtiéndolos a feature maps, después self.dropout regulariza ese mapa y self.gap convierte a un vector por canal. Se deja como un sólo vector por imagen para la toma de decisiones y self.classifier convierte el vector a un valor por clase (logit). 
 
+## Train one epoch
+Este es el ciclo completo de entrenamiento que se lleva a cabo una vez por época y donde empieza el aprendizaje. Primero la función hace que el modelo se ponga en modo de entrenamiento con model.train() lo que cambia el comportamiento de algunas capas como por ejemplo Dropout que aquí es donde empieza a apagar neuronas aleatoriamente y BatchNorm que recopila stats de forma interna lo cual es exclusivo de esta etapa de entrenamiento. Luego inicializa contadores de loss acumulado, número de predicciones acertadas y el total de los ejemplos procesados, lo cual sirve para generar métricas al final de cada época. 
+El loop principal se hace sobre el DataLoader el cual devuelve cada batch (x) y labels (y) en cada iteración; estas se envían al device configurado que en este caso es la CPU. 
 
+<details>
+  <summary>Click para abrir detalles: ¿Por qué usé CPU?</summary>
+
+En local no pude aprovechar mi GPU integrada Intel Iris Xe pues PyTorch sólo permite usar CUDA en GPUs NVIDIA pero mi equipo no tiene un back de CUDA compatible, sin embargo el código está estructurado de forma que se podría integrar en un futuro con operaciones como AMP y entrenamiento en GPU sin tener que reescribir toda la lógica. 
+
+</details>
+
+Antes del forward se establece a None el gradiente acumulado de los parámetros del batch anterior con optimizer.zero_grad para evitar que los nuevos gradientes se sumen a ellosy que las updates de pesos no sean correctas pues el gradiente representaría el error de muchos batches. Después se hace un forward pass donde el batch de entrada se integra en la red con logits=model(x) donde el modelo procesa la información mediante todas las capas y se calcula la pérdida con CrossEntropyLoss que mide el error entre lo predicho y la imagen real. En loss.backward se usa ese error para ir corrigiendo los pesos del modelo por medio de backpropagarion que usa la regla de la cadena para sacar el gradiente de loss con respecto a cada parámetro. Finalmente optimizer.step() toma esos gradientes para aplicarlos a los pesos del modelo y actualizarlos, moviéndolos en dirección contraria al gradiente para reducir la pérdida. 
+
+La función acumula métricas a medida que avanza el entrenamiento para monitorear su perfomance; multiplica el loss.item() por el tamaño del batch pues la cantidad de imágenes por lote varía y se debe asegurar que por ejemplo el error de un batch de 100 imágenes pese el doble que el de un batch de 50 imágenes. Esta ponderación se suma a running que es una variable acumuladora que al finalizar la época se divide entre el número de ejemplos y da la pérdida media ponderada. Después se mide el accuracy tomando el logit más alto preds=logits.argmax(1) y hace el conteo de cuántas predicciones sí coinciden con las labels verdaderas; los aciertos se suman a la variable correct y el número de imágenes procesadas a la variable total. Gracias a esto es que la barra de progreso de tqdm se va actuazilando en tiempo real y muestra loss y accuracy promedio hasta ese punto haciedno fácil la visualización de la convergencia del modelo. 
+
+## Evaluate
+Hace el proceso de evaluación del modelo en val y test; primero que nada se deben deshabilitar las operaciones que sólo sirven para el entrenamiento/aprendizaje garantizando que nada de lo que se haga en la evaluación modifique los parámetros del modelo; para esto se activa @torch.no_grad() que detiene el cálculo de gradientes haciendo como si estuviera en modo lectura pues ya no tiene que seguir construyendo ni almacenando operaciones internas simplemente las ejecuta como matemática normal sin un registro. También se llama a model.eval para fijar el modelo en modo evaluacipo, esto igual cambia el comportamiento de capas como Dropout, que en este punto deja de apagar neuronas para que todas estén activas y que la predicción utilice toda la capacidad del modelo; aquí el BatchNorm empieza a usar las stats fijas acumuladas en el entrenamiento en lugar de seguirlas actualizando para que el output de una imagen específica sea siempre igual independientemente de en qué batch de prueba esté. Todo esto asegura la evaluación consistente del modelo sin que se vea afectado por la aleatoriedad del entremaniento. 
+
+Esta función de evaluación es casi como el loop de entrenamiento pero omite algunas cosas importantes: recorre el DataLoader batch por bactch pero ya no hace el backward ni actualiza los pesos. Para cada batch se pasan las imágenes al modelo logits=model(x) y se calcula la pérdida usando la misma función CrossEntropy que en el entrenamiento para cuantificar qué tan malo es el desempeño en ese batch. Al activar el full=True la función empieza a guardar listas de predicciones y labels reales de cada batch adicional al loss y accuracy. Cuando ya procesó todos los batches une las listas entre sí para poder calcular métricas más complejas y descriptivas las cuales representan el performance del conjunto de datos completo en lugar de evaluar por batches individuales. Las métricas resultantes de este cálculo son: 
+
+| Métrica | ¿Qué hace? | 
+|----------|-----------|
+| F1 Macro |  Le da el mismo peso a todas las clases para que la evaluación sea justa aún en presencia de clases desbalanceadas.   |
+| Matriz de confusión |  Permite visualizar cuántas veces se clasificó correcta o incorrectamente cada clase y con cuáles otras se confundió  |
+| Classification report | Muestra un desglose de las métricas acc, recall y F1 para cada una de las 31 especies de peces. Sirve para diagnosticar problemas: recall bajo --> muchos false negatives. acc bajo --> muchos false positives |
+
+Esta función siempre devuelve al menos loss y acc, pero devvuelve las demás métricas mencionadas si full=True. 
