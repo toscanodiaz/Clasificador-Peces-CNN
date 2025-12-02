@@ -11,7 +11,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from torch.amp import GradScaler, autocast
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from tqdm import tqdm
 
@@ -61,7 +60,7 @@ class CNN(nn.Module):
         return self.classifier(x)
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, scaler=None, epoch=1, total_epochs=1):
+def train_one_epoch(model, loader, criterion, optimizer, device, epoch=1, total_epochs=1):
     model.train()
     total, correct, running = 0, 0, 0.0
     pbar = tqdm(loader, desc=f"Train [{epoch}/{total_epochs}]", leave=True, ncols=100)
@@ -69,27 +68,24 @@ def train_one_epoch(model, loader, criterion, optimizer, device, scaler=None, ep
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad(set_to_none=True)
 
-        if scaler is not None and scaler.is_enabled():
-            with autocast("cuda"):
-                logits = model(x)
-                loss = criterion(logits, y)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            logits = model(x)
-            loss = criterion(logits, y)
-            loss.backward()
-            optimizer.step()
+        logits = model(x)
+        loss = criterion(logits, y)
+
+        loss.backward()
+        optimizer.step()
 
         running += loss.item() * x.size(0)
         preds = logits.argmax(1)
         correct += (preds == y).sum().item()
         total += y.size(0)
 
-        pbar.set_postfix({"loss": f"{running/max(1,total):.4f}",
-                          "acc": f"{correct/max(1,total):.4f}"})
+        pbar.set_postfix({
+            "loss": f"{running/max(1,total):.4f}",
+            "acc": f"{correct/max(1,total):.4f}"
+        })
+
     return running/total, correct/total
+
 
 
 @torch.no_grad()
@@ -145,7 +141,7 @@ def train_and_eval(
 
     set_seed(seed)
     device = torch.device("cpu")
-    print(f"device {device}")
+
 
     # rutas
     data_root = os.path.join(root, subdir)
@@ -195,8 +191,6 @@ def train_and_eval(
     criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
-    USE_AMP = torch.cuda.is_available()
-    scaler = GradScaler("cuda", enabled=USE_AMP)
 
     # Salidas
     os.makedirs(output_dir, exist_ok=True)
@@ -214,7 +208,7 @@ def train_and_eval(
         t0 = time.time()
 
         tr_loss, tr_acc = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, scaler,
+            model, train_loader, criterion, optimizer, device,
             epoch=epoch, total_epochs=epochs
         )
         val_metrics = evaluate(
