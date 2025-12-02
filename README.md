@@ -32,7 +32,7 @@ Video demostración del clasificador: [fishclassifier.mp4](https://drive.google.
       - test/
 
 - [**Reporte.md**](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md) --> documentación del proyecto.
-- [**Anexos: Verificación de conocimiento**(https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md#anexos-verificaci%C3%B3n-de-conocimiento:~:text=Anexos%3A%20verificaci%C3%B3n%20de%20conocimiento) --> reporte detallado sobre el código de model_fish.py. 
+- [**Anexos: Verificación de conocimiento**](https://github.com/toscanodiaz/Clasificador-Peces-CNN/blob/main/Reporte.md#anexos-verificaci%C3%B3n-de-conocimiento:~:text=Anexos%3A%20verificaci%C3%B3n%20de%20conocimiento) --> reporte detallado sobre el código de model_fish.py. 
 
 ## Descripción general
 
