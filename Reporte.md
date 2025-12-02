@@ -24,7 +24,8 @@ Se entrenó un clasificador multiclase para reconocer 31 especies de peces del F
 
 --> Fully Connected (FC)
 
-### Bloques convolucionalesC:\Users\tosca\OneDrive\Documents\tec\septimo\benji\evidenciaDL\fish_dataset\FishImgDataset\val\Gourami\Picture7.jpg
+### Bloques convolucionales
+
 Cada bloque tiene dos capas convolucionales consecutivas con kernel 3×3 seguidas de Batch Normalization y activación ReLU:
 
 - **Conv2D 3×3**: extraen patrones visuales de manera jerárquica
