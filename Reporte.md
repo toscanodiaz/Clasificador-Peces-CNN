@@ -610,63 +610,234 @@ Esta función de evaluación es casi como el loop de entrenamiento pero omite al
 Esta función siempre devuelve al menos loss y acc, pero devvuelve las demás métricas mencionadas si full=True. 
 
 ## Train and eval - Pipeline
-Esta es la función que hace todo el pipeline 
+Esta es la función que coordina todo el pipeline; coordina justamente las funciones de entrenamiento, evaluación, definición del modelo etc, para definir el flujo entero del proyecto incluyendo todas sus fases (carga de los datos, augmentacinoes, entrenamiento, validación...) además de que asegura la reproducibilidad pues básicamente construye una secuencia fija de pasos lo cual brinda una base sólida para construir, entrenar y evaluar el modelo. 
 
-### Configuración de reproducibilidad y device
+### Seed y device
 ```
 set_seed(seed)
     device = torch.device("cpu")
 ```
+Aquí lo que se hace es definir el device, igual se vuelve a usar `set_seed(seed)` para que no haya aleatoriedad dentro de las operaciones y tener resultados deterministas entre experimentos. Se fija el device en CPU por las limitaciones de hardware comentadas anteriormente. 
 
-### Construcción de rutas
+
+### Rutas
 ```
-bash
+    data_root = os.path.join(root, subdir)
+    train_dir = os.path.join(data_root, "train")
+    val_dir   = os.path.join(data_root, "val")
+    test_dir  = os.path.join(data_root, "test")
+    for p in [train_dir, val_dir, test_dir]:
+        if not os.path.isdir(p):
+            raise FileNotFoundError(f"no existe carpeta {p}")
 ```
+
+Estas son las rutas hacia el dataset dnde se construye la carpeta completa de `data_root` a partir de combinar `root` y `subdir` mediante el uso de `os.path.join()` el cual toma ciertas partes de cada path para crear una ruta válida y completa. También verifica que la carpeta exista con `FileNotFoundError()` para debugging. 
 
 ### Definición de transformaciones
 ```
-bash
+    mean = [0.485, 0.456, 0.406]; std = [0.229, 0.224, 0.225]
+    train_tfms = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.RandomHorizontalFlip(0.5),
+        transforms.RandomRotation(15),
+        transforms.ColorJitter(0.2, 0.2, 0.15, 0.02),
+        transforms.RandomResizedCrop(img_size, scale=(0.8, 1.0)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std),
+    ])
+    eval_tfms = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std),
+    ])
 ```
 
-### Creación de datasets y dataloaders
+La función divide las transformaciones para train y evaluate, ya que en el entrenamiento el modelo necesita variación para utilizar todo su potencial de aprendizaje por lo que se aplicaron flips, rotaciones, jitter de color y recortes aleatorios redimensionados, a diferencia de la parte de evaluación (como se ha mencionado anteriormente se necesitan tener resultados comparables en cada experimento para medir el performance real del modelo) que usa redimensión y normalización de imagen únicamente, sin augmentaciones aleatorias, usando las medias y desviaciones estándar como en ImageNet para normalizar imágenes RGB tanto en train como en evaluate. 
+
+En caso de no hacerle augmentaciones a las imagenes de entrenamiento probablemente el modelo se podría overfittear al dataset y fallar en las predicciones de imágenes no vistas o incluso en las que sean un poco distintas a las que sí ha visto. 
+
+### Datasets y dataloaders
+
+En este bloque de train_and_eval se construyen los datasets y los dataloaders los cuáles básicamente definen dónde el modelo lee las imágenes y cómo pasarlas en train, val y test. 
+
+El flujo se constituye de la siguiente forma: 
+- El loop de entrenamiento se hace sobre el dataloader y solicita el siguiente batch
+- El DataLoader llama a `(__next__)` que es su método de iteración y usa workers para pedirle al dataest los índices (posición de img) del próximo batch. 
+- El Dataset usa `(__getitem__)` que es el método de acceso por índice, hace que el dataset se comporte como litsa o array y facilita que lea los elementos solicitados mediante `[n]`, hace las transformaciones a las imágenes y devuelve los tensores preprocesados. 
+- El dataloader aplica la función `collate` para agrupar las imágenes y labels en un mismo batch y se lo pasa al modelo para el forward pass y el cálculo de sus gradientes (loss). 
+
 ```
-bash
+    train_ds = datasets.ImageFolder(train_dir, transform=train_tfms)
+    val_ds   = datasets.ImageFolder(val_dir,   transform=eval_tfms)
+    test_ds  = datasets.ImageFolder(test_dir,  transform=eval_tfms)
+
+    class_names = train_ds.classes
+    num_classes = len(class_names)
+    print(f">>> Clases ({num_classes}): {class_names}")
+
+    PIN_MEMORY = False 
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+                              num_workers=num_workers, pin_memory=PIN_MEMORY)
+    val_loader   = DataLoader(val_ds, batch_size=batch_size, shuffle=False,
+                              num_workers=num_workers, pin_memory=PIN_MEMORY)
+    test_loader  = DataLoader(test_ds, batch_size=batch_size, shuffle=False,
+                              num_workers=num_workers, pin_memory=PIN_MEMORY)
+```
+Se crean 3 datasets c on `datasets.ImageFolder` cada uno para train, val y test; tiene una carpeta raíz la cual contiene subcarpetas por clase con sus imágenes correspondientes por lo tanto ImageFolder se encarga de la lectura directa de los archivos, de asignarles labels (en este caso números) por nombre de carpeta y aplica las transformaciones definidas en `train_tfms` y `eval_tfms`. 
+
+`train_ds.classes` se encarga de la extracción de la lista de clases desde el dataset de train, los nombres siempre se ordenan de la misma manera y a partir de ellos `num_classes` redimensiona la capa final. Al final se imprimen las clases sólo para validar la lectura del dataset. Después se construyen los DataLoaders que separan el dataset en batches del tamaño especificado en batch_size (en este caso 32) hace un `shuffle=True` para aleatorizar los datos en train en lugar de que mantengan un orden fijo (ej. todas las iágenes de una misma clase seguidas una de la otra) y devolver batches que ya estén listos para usarse por el modelo en cada iteración. Los Dataloaders de test y val usan `shuffle=False` porque no se necesita variación para evaluar. 
+
+Los num_workers se pasan desde la función y en este caso se mantuvo en 0 a excepción de la segunda iteración, la carga de datos se hace en el proceso principal lo cual es simple al trabajar en CPU y también en caso de que hayan algunos problemas con Windows, al igual el PIN_MEMORY está fijado a False por lo mismo; se almacenan los tensores en la RAM (CPU). 
+
+### Inicialización del modelo 
+
+Para este punto train_and_eval ya no se centra en los datos más bien compienza a preparar el modelo, la función de pérdida y a gestionar la actualización de los pesos. 
+
+```
+    model = CNN(num_classes=num_classes, base_ch=32, dropout_p=0.3).to(device)
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
 ```
 
-### Inicialización del modelo, criterio, optimizador y scheduler
+Aquí se hace la CNN "personalizada" pues se le indica directamente el número de clases que debe diferenciar en `num_classes` y define un ancho fijo de los canales con `base_ch=32` además del `dropout_p=0.3` (porcentaje de dropout: se apaga el 30% de las neuronas). Los 32 canales van escalando a 64, 128, 256 lo que permite capturar patrones visuales relevantes y manteniendo la simplicidad para entrenar en CPU --> el modelo se mandó a CPU porque ffue el dispositivo configurado previamente en `set_device()`. 
+
+Después se define la función de pérdida en la variable `criterion`, usa CrossEntropy porque se está haciendo clasificación multiclase y las labels son números enteros; compara los logits contra la clase correcta, con penalización de predicciones incorrectas proporcional a la confianza de los errores. Se incluye `label_smoothing` como técnica de regularización para que el modelo no haga "overlook" del ruido de los datos causando exceso de confianza --> deja de ser binario tipo correcto=1 e incorrecto=0 sino deja un margen de probabilidad entre las clases incorrectas para que el error se reparta uniformememnte, y la probabilidad de la clase correcta se reduce. Aunque sí definí el `label_smoothing` decidí usar CrossEntropy "natural" con etiquetas one-hot fijándolo en 0 para mis iteraciones pues en este dataset específico las labels son relativamente confiables (no hay ruido ni labels extrañas/poco descriptivas), por lo que prefería que el modelo mejor aprendiera a clasificar de la forma más estricta posible sin parámetros adicionales e interpretar los outputs y métricas de manera clara. 
+
+De optimizador se usa AdamW el cual es adaptativo pues no usa el mismo learning rate para todos los pesos del modelo sino que ajusta por par+ametro individual manteniendo en cada uno una media estimada y una varianza no centrada del gradiente para determinar su dirección y tamaño; hace que los parámetros den los pasos correspondientes al gradiente (pasos grandes para gradientes grandes). Con esto suele acelelar la convergencia además de automatizar la elección del lr inicial.
+El weight_decay hace que los pesos se mantengan pequeños controlando el overfitting y haciendo una tipo regularización L2. 
+
+Finalmente, se define el scheduler de learning rate:
+
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+
+El scheduler reduce el lr a medida que va pasando el entrenamiento: se usa StepLR pues al inicio se esperan pasos relativamente grandes para medir el espacio de soluciones pero mientras el modelo se acerque a un mínimo conviene dar pasos más pequeños para afinar detalles necesarios. Cada step_size épocas se multiplica el lr por el gamma (en este caso `step_size=8` y `gamma=0.5` lo que causa que después de 8 épocas el lr se reduzca a la mitad y así sucesivamente a las 16, 32, etc). De mantenerse un lr fijo los saltos podrían ser muy grandes sin terminar de estabilizar una buena solución. 
+
+### Salida
+Se preparan las rutas y nombres donde se van a guardar los resultados de las iteraciones. 
+
 ```
-bash
+    os.makedirs(output_dir, exist_ok=True)
+    run = f"output_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    ckpt_path = os.path.join(output_dir, f"{run}_best.pt")
+    log_path  = os.path.join(output_dir, f"{run}_log.json")
+
+    best_val, best_epoch, patience_ctr = -1.0, -1, 0
+    history = {"train": [], "val": []}
+    state = {}
 ```
 
-### Definir nombres de salida
-```
-bash
-```
+Crea `output_dir` si no existe y hace un ID único con base en fecha y hora (`output_20251108_145328_best`) para automatizar el entrenamiento sin sobreescribir los archivos anteriores. Con base en el identificador se construye una ruta para guardar el mejor checkpoint del modelo (`*_best.pt`) y otra que registra el histórico de entrenamiento en JSON (`*_log.json`). Al final se inician variables que identifican el mejor acc de val, la época en la que se alcanzó y el contador de patience para early stopping además del diccionario histórico de loss y acc durante el entrenaminto. 
 
-### Variables de early stopping
-```
-bash
-```
 
 ### Bucle de entrenamiento
 ```
-bash
+    for epoch in range(1, epochs + 1):
+        print(f"\n=== Epoch {epoch}/{epochs} ===")
+        t0 = time.time()
+
+        tr_loss, tr_acc = train_one_epoch(
+            model, train_loader, criterion, optimizer, device,
+            epoch=epoch, total_epochs=epochs
+        )
+        val_metrics = evaluate(
+            model, val_loader, criterion, device,
+            full=False, class_names=None, phase_name="Val",
+            epoch=epoch, total_epochs=epochs
+        )
+
+        scheduler.step()
+
+        history["train"].append({"epoch": epoch, "loss": tr_loss, "acc": tr_acc})
+        history["val"].append({"epoch": epoch, "loss": val_metrics["loss"], "acc": val_metrics["acc"]})
+
+        print(f"Train | loss={tr_loss:.4f} acc={tr_acc:.4f}")
+        print(f"Val   | loss={val_metrics['loss']:.4f} acc={val_metrics['acc']:.4f} (time {time.time()-t0:.1f}s)")
 ```
+
+Este es el bucle principal de la funcion que coordina el entrenamiento; en cada iteración se llama a `train_one_epoch` que saca el loss y acc del set de trainy luego ejecuta `evaluate` sobre el split de val para medir cómo se comporta el modelo con datos no vistos. Esos son los valores que se toman para actualizar las listas de historial lo que permite la reconstrucción de las curvas de aprendizaje y el análisis de su comportamiento. Después de cada época se reduce el lr gracias al scheduler y simultáneamente se imprime en consola el loss y acc de train y val además del tiempo que tardó la época en comlpetarse. 
+
+### Variables de early stopping
+```
+if val_metrics["acc"] > best_val:
+            best_val, best_epoch, patience_ctr = val_metrics["acc"], epoch, 0
+            torch.save({
+                "epoch": epoch,
+                "model_state": model.state_dict(),
+                "best_val_acc": best_val,
+                "class_names": class_names,
+                "hparams": {
+                    "root": root, "subdir": subdir, "epochs": epochs, "batch_size": batch_size,
+                    "img_size": img_size, "lr": lr, "weight_decay": weight_decay,
+                    "step_size": step_size, "gamma": gamma, "label_smoothing": label_smoothing,
+                    "patience": patience, "num_workers": num_workers, "seed": seed
+                }
+            }, ckpt_path)
+            print(f"mejor modelo guardado en {ckpt_path} (val_acc={best_val:.4f})")
+        else:
+            patience_ctr += 1
+            if patience_ctr >= patience:
+                print(f"early stopping en epoch {epoch} (mejor val_acc={best_val:.4f} @ {best_epoch})")
+                break
+
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump({"history": history, "best_val_acc": best_val, "best_epoch": best_epoch}, f, indent=2)
+```
+
+También implementa la lógica de early stopping cuando el acc de val supera el mejor valor registrado a ese punto, `best_val` y `best_epoch` se actualizan con el nuevo mejor valor y se reinicia el contador de patience. Guarda un checkpoint con los detalles completos del modelo y los hiperparámetros. También detiene el entrenamiento antes de tiempo enn caso de que el acc se estanque en un mismo valor y deje de actualizarse en varias épocas seguidas dependiendo de lo definido en `patience` (en este caso 7) para evitar que se siga iterando cuando ya no hay una mejora real. Al final de cada época se actualiza el JSON de histórico y se guarda el progreso aunque se interrumpa el entrenamiento. 
+
 
 ### Carga de mejor checkpoint
 ```
-bash
+if os.path.isfile(ckpt_path):
+        state = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(state["model_state"])
+        print(f"mejor checkpoint cargado (val_acc={state.get('best_val_acc', 0):.4f})")
 ```
 
+Cuando termina el loop de entrenamiento esta función carga el mejor modelo encontrado verificando primero si el archivo de checkpoint existe y lo abre con `torch.load` mapeando los tensores a la CPU. El ckpt incluye el estado interno del modelo en la época exacta donde alcanzó el mejor acc en val por lo tanto se restaura usando `model.load_state_dict(state["model_state"])`; esto evita que el modelo que se queda en memoria sea peor que el mejor encontrado pues en algunos casos las últimas épocas pueden oscilar o tener overfit ligero, más bien las evaluaciones posteriores se hacen con la mejor versión (la más sólida) del modelo. Al final se imprime el acc de val que corresponde a ese checkpoint para verificar la correcta restauración. 
+
 ### Evaluación final en val y test
+Posterior a restaurar el mejor modelo la función hace una evaluación completa tanto en val como en el set de test activando `full=True` para que la función `evaluate` saque no sólo el loss y acc sino las métricas de F1, matriz de confusión y classification report.
+
 ```
-bash
+    print("\nVALIDACIÓN")
+    val_full = evaluate(model, val_loader, criterion, device, full=True, class_names=class_names, phase_name="Val-Full")
+    print(f"val  | loss={val_full['loss']:.4f} acc={val_full['acc']:.4f} macroF1={val_full['macro_f1']:.4f}")
+    print(val_full["classification_report"])
+
+    print("\nTEST")
+    test_full = evaluate(model, test_loader, criterion, device, full=True, class_names=class_names, phase_name="Test-Full")
+    print(f"test | loss={test_full['loss']:.4f} acc={test_full['acc']:.4f} macroF1={test_full['macro_f1']:.4f}")
+    print(test_full["classification_report"])
 ```
+
+Se hace primero la evaluación en el split de val para verificar el comportamiento del modelo en los mismos datos que se usaron como monitoreo para el early stopping, se hace igual en el set de test pero ese es el que sirve en realidad como referencia terminante del performance del modelo en datos desconocidos. Tanto en val como en test se imprime el loss, acc, F1 y el reporte de clasificación. 
+
 
 ### Guardado de métricas en metrics.json
 ```
-bash
+metrics_path = os.path.join(output_dir, f"{run}_metrics.json")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "val": val_full, "test": test_full,
+            "best_val_acc": state.get("best_val_acc", best_val) if state else best_val,
+            "best_epoch": best_epoch,
+            "class_names": class_names,
+            "hparams": {
+                "root": root, "subdir": subdir, "epochs": epochs, "batch_size": batch_size,
+                "img_size": img_size, "lr": lr, "weight_decay": weight_decay,
+                "step_size": step_size, "gamma": gamma, "label_smoothing": label_smoothing,
+                "patience": patience, "num_workers": num_workers, "seed": seed
+            }
+        }, f, indent=2)
+
+    print(f"\nmétricas guardadas en {metrics_path}")
+    print(f"checkpoint mejor modelo en {ckpt_path}")
 ```
+Cuando termina la evaluación se toman las métricas más relevantes de val y test y se guardan en un JSON dentro de la carpeta de salida, el cuál incluye los resultados numéricos y también los detalles del mejor modelo (info, época en la que se alcanzó, hiperparámetros usados) y al final se imprime la ruta del archivo creado y la del checkpoint para saber en dónde está todo almacenado. 
+
+
 
 
 
